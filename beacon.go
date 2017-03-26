@@ -9,7 +9,7 @@ import (
 )
 
 // BeaconID is the service ID for DHT
-const BeaconID uint32 = 3819762595
+const BeaconID uint32 = 19860714
 
 // Beacon service struct
 type Beacon struct {
@@ -56,7 +56,7 @@ func (b *Beacon) requestOverlayPort() {
 	b.ipc.RequestServicePort("Overlay", b.pool, func(r *ipc.Base) {
 		b.overlay = rnet.Port(serial.UnmarshalUint16(r.Body))
 		log.Info(log.Lbl("overlay_port"), b.overlay)
-		b.ipc.RegisterWithOverlay(BeaconID, b.overlay, nil)
+		b.ipc.RegisterWithOverlay(BeaconID, b.overlay)
 	})
 }
 
