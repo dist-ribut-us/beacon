@@ -1,35 +1,32 @@
 package beacon
 
 import (
-	"github.com/dist-ribut-us/ipc"
+	"github.com/dist-ribut-us/ipcrouter"
 	"github.com/dist-ribut-us/log"
 	"github.com/dist-ribut-us/message"
 	"github.com/dist-ribut-us/rnet"
 	"github.com/dist-ribut-us/serial"
 )
 
-// BeaconID is the service ID for DHT
-const BeaconID uint32 = 19860714
-
 // Beacon service struct
 type Beacon struct {
-	ipc     *ipc.Proc
+	router  *ipcrouter.Router
 	overlay rnet.Port
 	pool    rnet.Port
 }
 
 // New Beacon struct
-func New(proc *ipc.Proc, pool rnet.Port) *Beacon {
+func New(router *ipcrouter.Router, pool rnet.Port) *Beacon {
 	b := &Beacon{
-		ipc:  proc,
-		pool: pool,
+		router: router,
+		pool:   pool,
 	}
-	b.ipc.Handler(b.handler)
+	b.router.Register(message.BeaconService, b.handler)
 	return b
 }
 
 // Run listens on the IPC channel and handles any messages it receives.
-func (b *Beacon) handler(bs *ipc.Base) {
+func (b *Beacon) handler(bs *ipcrouter.Base) {
 	if bs.IsFromNet() {
 		b.handleNetReceive(bs)
 	} else {
@@ -37,7 +34,7 @@ func (b *Beacon) handler(bs *ipc.Base) {
 	}
 }
 
-func (b *Beacon) handleNetReceive(bs *ipc.Base) {
+func (b *Beacon) handleNetReceive(bs *ipcrouter.Base) {
 	switch t := bs.GetType(); t {
 	case message.GetIP:
 		if bs.IsQuery() {
@@ -53,15 +50,15 @@ func (b *Beacon) handleNetReceive(bs *ipc.Base) {
 
 // requestOverlayPort then register Beacon with overlay as service
 func (b *Beacon) requestOverlayPort() {
-	b.ipc.RequestServicePort("Overlay", b.pool, func(r *ipc.Base) {
+	b.router.RequestServicePort("Overlay", b.pool, func(r *ipcrouter.Base) {
 		b.overlay = rnet.Port(serial.UnmarshalUint16(r.Body))
 		log.Info(log.Lbl("overlay_port"), b.overlay)
-		b.ipc.RegisterWithOverlay(BeaconID, b.overlay)
+		b.router.RegisterWithOverlay(message.BeaconService, b.overlay)
 	})
 }
 
 // Run the beacon service
 func (b *Beacon) Run() {
 	go b.requestOverlayPort()
-	b.ipc.Run()
+	b.router.Run()
 }
