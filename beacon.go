@@ -21,28 +21,21 @@ func New(router *ipcrouter.Router, pool rnet.Port) *Beacon {
 		router: router,
 		pool:   pool,
 	}
-	b.router.Register(message.BeaconService, b.handler)
+	b.router.Register(b)
 	return b
 }
 
-// Run listens on the IPC channel and handles any messages it receives.
-func (b *Beacon) handler(bs *ipcrouter.Base) {
-	if bs.IsFromNet() {
-		b.handleNetReceive(bs)
-	} else {
-		log.Info(log.Lbl("unknown_type"), bs.GetType())
-	}
+// ServiceID for Beacon service
+func (*Beacon) ServiceID() uint32 {
+	return message.BeaconService
 }
 
-func (b *Beacon) handleNetReceive(bs *ipcrouter.Base) {
-	switch t := bs.GetType(); t {
+// NetQueryHandler for Beacon service
+func (b *Beacon) NetQueryHandler(q ipcrouter.NetQuery) {
+	switch t := q.GetType(); t {
 	case message.GetIP:
-		if bs.IsQuery() {
-			log.Info(log.Lbl("responding_to_get_ip"))
-			bs.Respond(bs.Addrpb)
-		} else {
-			log.Info(log.Lbl("non_query_get_ip"))
-		}
+		log.Info(log.Lbl("responding_to_get_ip"))
+		q.Respond(q.GetAddrpb())
 	default:
 		log.Info(log.Lbl("unknown_net_message"), t)
 	}
@@ -50,8 +43,8 @@ func (b *Beacon) handleNetReceive(bs *ipcrouter.Base) {
 
 // requestOverlayPort then register Beacon with overlay as service
 func (b *Beacon) requestOverlayPort() {
-	b.router.RequestServicePort("Overlay", b.pool, func(r *ipcrouter.Base) {
-		b.overlay = rnet.Port(serial.UnmarshalUint16(r.Body))
+	b.router.RequestServicePort("Overlay", b.pool, func(r ipcrouter.Response) {
+		b.overlay = rnet.Port(serial.UnmarshalUint16(r.GetBody()))
 		log.Info(log.Lbl("overlay_port"), b.overlay)
 		b.router.RegisterWithOverlay(message.BeaconService, b.overlay)
 	})
